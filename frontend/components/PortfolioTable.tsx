@@ -10,25 +10,27 @@ export default function PortfolioTable() {
     const [stocks, setStocks] = useState<PortfolioStock[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
     const isFetching = useRef(false);
 
-    const loadData = async () => {
+    const loadData = async (isBackground = false) => {
         if (isFetching.current) return;
 
         try {
             isFetching.current = true;
-            setLoading(true);
+            if (!isBackground) setLoading(true);
+            if (isBackground) setRefreshing(true);
 
             const data = await fetchPortfolio();
             setStocks(data);
             setError(null);
-        } catch (err) {
-            console.error("Frontend fetch failed", err);
+        } catch {
             setError("Failed to load portfolio data");
         } finally {
             isFetching.current = false;
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
@@ -36,14 +38,23 @@ export default function PortfolioTable() {
         loadData();
 
         const interval = setInterval(() => {
-            loadData();
+            loadData(true);
         }, 15000);
 
         return () => clearInterval(interval);
     }, []);
 
     if (loading && stocks.length === 0) {
-        return <p className="text-gray-500 text-center py-8">Loading portfolio data…</p>;
+        return (
+            <div className="text-center py-10 space-y-2">
+                <p className="text-gray-600">
+                    Loading portfolio data…
+                </p>
+                <p className="text-sm text-gray-400">
+                    Fetching live stock prices and fundamentals. This may take a few seconds.
+                </p>
+            </div>
+        );
     }
 
     if (error) {
@@ -54,6 +65,12 @@ export default function PortfolioTable() {
 
     return (
         <div className="space-y-8">
+            {refreshing && (
+                <p className="text-sm text-gray-400 text-center">
+                    Updating latest market data…
+                </p>
+            )}
+
             {Object.entries(grouped).map(([sector, sectorStocks]) => (
                 <div key={sector}>
                     <SectorSummary sector={sector} stocks={sectorStocks} />
